@@ -31,6 +31,8 @@ TAGS = {
     "pump1_running": os.getenv("PUMP1_RUNNING_TAG", "Pump1_Running"),
     "pump2_command": os.getenv("PUMP2_COMMAND_TAG", "Pump2_Command"),
     "pump2_running": os.getenv("PUMP2_RUNNING_TAG", "Pump2_Running"),
+    "drain_valve_command": os.getenv("DRAIN_VALVE_COMMAND_TAG", "DrainValve_Command"),
+    "drain_valve_open": os.getenv("DRAIN_VALVE_OPEN_TAG", "DrainValve_Open"),
 }
 
 
@@ -40,6 +42,7 @@ class Simulation:
         self.level = 54.0
         self.box_level = 0.0
         self.pumps = {1: False, 2: False}
+        self.drain_valve_open = False
         self.last_update = time.monotonic()
 
     def _advance(self):
@@ -47,8 +50,9 @@ class Simulation:
         elapsed = min(now - self.last_update, 5.0)
         self.last_update = now
         transfer_rate = int(self.pumps[2]) * 1.4
+        drain_rate = int(self.drain_valve_open) * 1.8
         self.level += (int(self.pumps[1]) * 1.1 - transfer_rate) * elapsed
-        self.box_level += transfer_rate * (TANK_CAPACITY_LITERS / BOX_CAPACITY_LITERS) * elapsed
+        self.box_level += (transfer_rate * (TANK_CAPACITY_LITERS / BOX_CAPACITY_LITERS) - drain_rate) * elapsed
         self.level = max(0.0, min(100.0, self.level))
         self.box_level = max(0.0, min(100.0, self.box_level))
         if self.level >= 100:
@@ -66,6 +70,7 @@ class Simulation:
                 "tankCapacityLiters": TANK_CAPACITY_LITERS,
                 "boxLevel": round(self.box_level, 1),
                 "boxCapacityLiters": BOX_CAPACITY_LITERS,
+                "drainValveOpen": self.drain_valve_open,
                 "pumps": [
                     {"id": 1, "name": "Bomba 01", "running": self.pumps[1], "direction": "Enchimento"},
                     {"id": 2, "name": "Bomba 02", "running": self.pumps[2], "direction": "Descarga"},
@@ -83,6 +88,12 @@ class Simulation:
             if running and pump_id == 2 and self.box_level >= 100:
                 raise ValueError("Caixa d'água cheia; a bomba de transferência não pode ser ligada.")
             self.pumps[pump_id] = running
+            return self.status()
+
+    def set_drain_valve(self, opened):
+        with self.lock:
+            self._advance()
+            self.drain_valve_open = opened
             return self.status()
 
 
@@ -105,9 +116,15 @@ class RockwellPLC:
 
     def status(self):
         with self.lock, self._open() as plc:
-            results = plc.read(TAGS["level"], TAGS["box_level"], TAGS["pump1_running"], TAGS["pump2_running"])
+            results = plc.read(
+                TAGS["level"],
+                TAGS["box_level"],
+                TAGS["pump1_running"],
+                TAGS["pump2_running"],
+                TAGS["drain_valve_open"],
+            )
             self._check_results(results)
-            level, box_level, pump1, pump2 = (result.value for result in results)
+            level, box_level, pump1, pump2, drain_valve = (result.value for result in results)
             return {
                 "mode": "rockwell",
                 "connected": True,
@@ -115,6 +132,7 @@ class RockwellPLC:
                 "tankCapacityLiters": TANK_CAPACITY_LITERS,
                 "boxLevel": round(float(box_level), 1),
                 "boxCapacityLiters": BOX_CAPACITY_LITERS,
+                "drainValveOpen": bool(drain_valve),
                 "pumps": [
                     {"id": 1, "name": "Bomba 01", "running": bool(pump1), "direction": "Enchimento"},
                     {"id": 2, "name": "Bomba 02", "running": bool(pump2), "direction": "Descarga"},
@@ -131,6 +149,12 @@ class RockwellPLC:
                 if float(box_level.value) >= 100:
                     raise ValueError("Caixa d'água cheia; a bomba de transferência não pode ser ligada.")
             result = plc.write((command_tag, running))
+            self._check_results([result])
+        return self.status()
+
+    def set_drain_valve(self, opened):
+        with self.lock, self._open() as plc:
+            result = plc.write((TAGS["drain_valve_command"], opened))
             self._check_results([result])
         return self.status()
 
@@ -273,6 +297,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         if not self._require_authentication():
+            return
+
+        if path == "/api/valve/drain":
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+                if content_length > 1024:
+                    raise ValueError("Requisição muito grande.")
+                payload = json.loads(self.rfile.read(content_length))
+                opened = payload.get("open")
+                if not isinstance(opened, bool):
+                    raise ValueError("O campo 'open' deve ser verdadeiro ou falso.")
+                self._send_json(controller.set_drain_valve(opened))
+            except ValueError as error:
+                self._send_json({"error": str(error)}, 400)
+            except Exception as error:
+                self._send_json({"connected": False, "mode": MODE, "error": str(error)}, 502)
             return
 
         parts = path.strip("/").split("/")
