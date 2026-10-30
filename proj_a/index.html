@@ -64,7 +64,7 @@
     .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
     .panel-head h2, .section-title { margin: 4px 0 0; font-family: "Barlow Condensed", Impact, sans-serif; font-size: 25px; font-weight: 600; text-transform: uppercase; }
     .tag { padding: 6px 9px; color: var(--teal); background: #e5f1e9; border: 1px solid #c8ddd1; border-radius: 2px; font-size: 10px; font-weight: 700; letter-spacing: .8px; }
-    .diagram { display: grid; grid-template-columns: minmax(90px, 1fr) 40px minmax(130px, 1.15fr) 40px minmax(90px, 1fr); align-items: center; gap: 6px; min-height: 278px; padding: 18px 0 7px; }
+    .diagram { display: grid; grid-template-columns: minmax(64px, .75fr) 24px minmax(95px, 1.05fr) 24px minmax(64px, .75fr) 24px minmax(60px, .8fr); align-items: center; gap: 6px; min-height: 278px; padding: 18px 0 7px; }
     .pump-node { display: grid; justify-items: center; gap: 10px; text-align: center; }
     .pump-symbol { position: relative; width: 68px; height: 68px; display: grid; place-items: center; color: var(--muted); background: #f0f3ed; border: 2px solid #aebcb4; border-radius: 50%; font-family: "Barlow Condensed", Impact, sans-serif; font-size: 18px; font-weight: 700; transition: .25s ease; }
     .pump-symbol::before { content: ""; position: absolute; right: -9px; width: 13px; height: 20px; background: #f0f3ed; border: 2px solid #aebcb4; border-left: 0; border-radius: 0 3px 3px 0; }
@@ -78,13 +78,14 @@
     .pipe.active::after { border-left-color: var(--teal); }
     .tank-wrap { display: grid; justify-items: center; gap: 9px; }
     .tank { position: relative; width: 112px; height: 190px; overflow: hidden; background: #f6f8f3; border: 3px solid var(--ink); border-top: 8px solid var(--ink); border-radius: 7px 7px 16px 16px; box-shadow: inset 0 0 0 5px rgba(23, 42, 44, .035); }
+    .tank-box { width: 78px; height: 132px; }
     .tank::before, .tank::after { content: ""; position: absolute; z-index: 2; left: 0; right: 0; height: 1px; background: rgba(23, 42, 44, .2); }
     .tank::before { top: 33%; } .tank::after { top: 66%; }
     .water { position: absolute; right: 0; bottom: 0; left: 0; height: 54%; background: #7bc8b1; border-top: 2px solid #237b73; transition: height .5s ease; }
     .water::before { content: ""; position: absolute; left: -20%; top: -5px; width: 140%; height: 11px; border-radius: 50%; background: rgba(216, 242, 99, .6); }
     .tank-level { position: absolute; z-index: 3; inset: 45% 0 auto; color: var(--ink); font-family: "Barlow Condensed", Impact, sans-serif; font-size: 24px; font-weight: 700; text-align: center; text-shadow: 0 1px 5px rgba(255,255,255,.8); }
     .tank-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 1px; }
-    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 6px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 6px; }
     .metric { padding: 12px 14px; background: #f0f4ee; border-left: 2px solid var(--line); }
     .metric span { display: block; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
     .metric strong { display: block; margin-top: 3px; font-family: "Barlow Condensed", Impact, sans-serif; font-size: 22px; font-weight: 600; }
@@ -128,13 +129,14 @@
       .heading { align-items: start; flex-direction: column; }
       .heading-note { text-align: left; }
       .process, .controls { padding: 17px; }
-      .diagram { grid-template-columns: minmax(57px, 1fr) 18px minmax(90px, 1.1fr) 18px minmax(57px, 1fr); gap: 3px; min-height: 238px; }
-      .pump-symbol { width: 53px; height: 53px; font-size: 15px; }
-      .tank { width: 88px; height: 165px; }
-      .tank-level { font-size: 21px; }
+      .diagram { grid-template-columns: minmax(44px, .7fr) 8px minmax(58px, 1fr) 8px minmax(44px, .7fr) 8px minmax(48px, .7fr); gap: 3px; min-height: 238px; }
+      .pump-symbol { width: 45px; height: 45px; font-size: 14px; }
+      .tank { width: 60px; height: 140px; }
+      .tank-box { width: 49px; height: 95px; }
+      .tank-level { font-size: 17px; }
       .pump-node strong { font-size: 10px; }
       .pump-node small { font-size: 9px; }
-      .metrics { gap: 6px; }
+      .metrics { grid-template-columns: repeat(2, 1fr); gap: 6px; }
       .metric { padding: 9px 8px; }
       .metric span { font-size: 8px; }
       .metric strong { font-size: 19px; }
@@ -168,10 +170,10 @@
           <div><span class="eyebrow">Diagrama do processo</span><h2 id="process-title">Tanque e transferência</h2></div>
           <span class="tag" id="mode-tag">SIMULAÇÃO</span>
         </div>
-        <div class="diagram" aria-label="Bomba 1 alimenta o tanque; bomba 2 faz a descarga">
+        <div class="diagram" aria-label="Bomba 1 enche o tanque; bomba 2 transfere água do tanque para a caixa">
           <div class="pump-node">
             <div class="pump-symbol" id="pump-symbol-1">P1</div>
-            <strong>Bomba 01</strong><small>Enchimento</small>
+            <strong>Bomba 01</strong><small>Enche TQ-01</small>
           </div>
           <div class="pipe" id="pipe-1"></div>
           <div class="tank-wrap">
@@ -181,11 +183,17 @@
           <div class="pipe" id="pipe-2"></div>
           <div class="pump-node">
             <div class="pump-symbol" id="pump-symbol-2">P2</div>
-            <strong>Bomba 02</strong><small>Descarga</small>
+            <strong>Bomba 02</strong><small>Transferência</small>
+          </div>
+          <div class="pipe" id="pipe-3"></div>
+          <div class="tank-wrap">
+            <div class="tank tank-box"><div class="water" id="box-water"></div><div class="tank-level" id="box-level">0%</div></div>
+            <span class="tank-label">CX-01 / 5 m³</span>
           </div>
         </div>
         <div class="metrics" aria-label="Resumo do processo">
           <div class="metric"><span>Nível do tanque</span><strong id="level-metric">54.0%</strong></div>
+          <div class="metric"><span>Nível da caixa</span><strong id="box-level-metric">0.0%</strong></div>
           <div class="metric"><span>Bombas ligadas</span><strong id="active-count">0 / 2</strong></div>
           <div class="metric"><span>Condição</span><strong id="condition">Normal</strong></div>
         </div>
@@ -202,7 +210,7 @@
         </div>
         <div class="pump-control" data-control="2">
           <div class="control-top">
-            <div class="control-name"><span class="mini-pump">P2</span><span><strong>Bomba 02</strong><small>Descarga do tanque</small></span></div>
+            <div class="control-name"><span class="mini-pump">P2</span><span><strong>Bomba 02</strong><small>Transferência para CX-01</small></span></div>
             <span class="state" id="pump-state-2">Desligada</span>
           </div>
           <button class="command" data-pump="2" type="button">Ligar bomba 02</button>
@@ -262,12 +270,16 @@
     function render(data) {
       if (!data.connected) throw new Error(data.error || "Sem comunicação com o controlador.");
       const level = Math.max(0, Math.min(100, Number(data.tankLevel) || 0));
+      const boxLevel = Math.max(0, Math.min(100, Number(data.boxLevel) || 0));
       const active = data.pumps.filter((pump) => pump.running).length;
       document.querySelector("#water").style.height = `${level}%`;
+      document.querySelector("#box-water").style.height = `${boxLevel}%`;
       document.querySelector("#tank-level").textContent = `${Math.round(level)}%`;
+      document.querySelector("#box-level").textContent = `${Math.round(boxLevel)}%`;
       document.querySelector("#level-metric").textContent = `${level.toFixed(1)}%`;
+      document.querySelector("#box-level-metric").textContent = `${boxLevel.toFixed(1)}%`;
       document.querySelector("#active-count").textContent = `${active} / 2`;
-      document.querySelector("#condition").textContent = level >= 90 ? "Nível alto" : level <= 10 ? "Nível baixo" : "Normal";
+      document.querySelector("#condition").textContent = boxLevel >= 100 ? "Caixa cheia" : level >= 90 ? "Nível alto" : level <= 10 ? "Nível baixo" : "Normal";
       document.querySelector("#updated-at").textContent = data.updatedAt || "--:--:--";
       document.querySelector("#mode-tag").textContent = data.mode === "rockwell" ? "ROCKWELL / PLC" : "SIMULAÇÃO";
       document.querySelector("#connection-led").className = "led ok";
@@ -283,6 +295,7 @@
         button.classList.toggle("stop", pump.running);
         document.querySelector(`#pump-symbol-${pump.id}`).classList.toggle("running", pump.running);
         document.querySelector(`#pipe-${pump.id}`).classList.toggle("active", pump.running);
+        if (pump.id === 2) document.querySelector("#pipe-3").classList.toggle("active", pump.running);
       });
       if (data.mode === "rockwell") {
         notice.classList.remove("error");
@@ -290,6 +303,9 @@
       } else {
         notice.classList.remove("error");
         notice.textContent = "Modo de simulação ativo. Os comandos não acionam equipamento físico.";
+      }
+      if (data.mode === "simulation" && boxLevel >= 100 && !data.pumps[1].running) {
+        notice.textContent = "Caixa cheia. Bomba 02 desligada automaticamente.";
       }
     }
 

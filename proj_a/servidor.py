@@ -15,6 +15,8 @@ PLC_IP = os.getenv("PLC_IP", "xx.xx.xx.xx")
 PORT = int(os.getenv("PORT", "8000"))
 APP_PASSWORD = os.getenv("APP_PASSWORD", "21010")
 SESSION_TTL = 8 * 60 * 60
+TANK_CAPACITY_LITERS = 10000
+BOX_CAPACITY_LITERS = TANK_CAPACITY_LITERS // 2
 LOGIN_MAX_FAILURES = 5
 LOGIN_WINDOW = 60
 sessions = {}
@@ -24,6 +26,7 @@ login_failures_lock = threading.Lock()
 
 TAGS = {
     "level": os.getenv("TANK_LEVEL_TAG", "Tank_Level"),
+    "box_level": os.getenv("BOX_LEVEL_TAG", "Box_Level"),
     "pump1_command": os.getenv("PUMP1_COMMAND_TAG", "Pump1_Command"),
     "pump1_running": os.getenv("PUMP1_RUNNING_TAG", "Pump1_Running"),
     "pump2_command": os.getenv("PUMP2_COMMAND_TAG", "Pump2_Command"),
@@ -35,6 +38,7 @@ class Simulation:
     def __init__(self):
         self.lock = threading.RLock()
         self.level = 54.0
+        self.box_level = 0.0
         self.pumps = {1: False, 2: False}
         self.last_update = time.monotonic()
 
@@ -42,11 +46,14 @@ class Simulation:
         now = time.monotonic()
         elapsed = min(now - self.last_update, 5.0)
         self.last_update = now
-        self.level += (int(self.pumps[1]) * 1.1 - int(self.pumps[2]) * 1.4) * elapsed
+        transfer_rate = int(self.pumps[2]) * 1.4
+        self.level += (int(self.pumps[1]) * 1.1 - transfer_rate) * elapsed
+        self.box_level += transfer_rate * (TANK_CAPACITY_LITERS / BOX_CAPACITY_LITERS) * elapsed
         self.level = max(0.0, min(100.0, self.level))
+        self.box_level = max(0.0, min(100.0, self.box_level))
         if self.level >= 100:
             self.pumps[1] = False
-        if self.level <= 0:
+        if self.box_level >= 100 or self.level <= 0:
             self.pumps[2] = False
 
     def status(self):
@@ -56,6 +63,9 @@ class Simulation:
                 "mode": "simulation",
                 "connected": True,
                 "tankLevel": round(self.level, 1),
+                "tankCapacityLiters": TANK_CAPACITY_LITERS,
+                "boxLevel": round(self.box_level, 1),
+                "boxCapacityLiters": BOX_CAPACITY_LITERS,
                 "pumps": [
                     {"id": 1, "name": "Bomba 01", "running": self.pumps[1], "direction": "Enchimento"},
                     {"id": 2, "name": "Bomba 02", "running": self.pumps[2], "direction": "Descarga"},
@@ -69,7 +79,9 @@ class Simulation:
             if running and pump_id == 1 and self.level >= 100:
                 raise ValueError("Tanque cheio; a bomba de enchimento não pode ser ligada.")
             if running and pump_id == 2 and self.level <= 0:
-                raise ValueError("Tanque vazio; a bomba de recirculação não pode ser ligada.")
+                raise ValueError("Tanque vazio; a bomba de transferência não pode ser ligada.")
+            if running and pump_id == 2 and self.box_level >= 100:
+                raise ValueError("Caixa d'água cheia; a bomba de transferência não pode ser ligada.")
             self.pumps[pump_id] = running
             return self.status()
 
@@ -93,13 +105,16 @@ class RockwellPLC:
 
     def status(self):
         with self.lock, self._open() as plc:
-            results = plc.read(TAGS["level"], TAGS["pump1_running"], TAGS["pump2_running"])
+            results = plc.read(TAGS["level"], TAGS["box_level"], TAGS["pump1_running"], TAGS["pump2_running"])
             self._check_results(results)
-            level, pump1, pump2 = (result.value for result in results)
+            level, box_level, pump1, pump2 = (result.value for result in results)
             return {
                 "mode": "rockwell",
                 "connected": True,
                 "tankLevel": round(float(level), 1),
+                "tankCapacityLiters": TANK_CAPACITY_LITERS,
+                "boxLevel": round(float(box_level), 1),
+                "boxCapacityLiters": BOX_CAPACITY_LITERS,
                 "pumps": [
                     {"id": 1, "name": "Bomba 01", "running": bool(pump1), "direction": "Enchimento"},
                     {"id": 2, "name": "Bomba 02", "running": bool(pump2), "direction": "Descarga"},
@@ -110,6 +125,11 @@ class RockwellPLC:
     def set_pump(self, pump_id, running):
         command_tag = TAGS[f"pump{pump_id}_command"]
         with self.lock, self._open() as plc:
+            if running and pump_id == 2:
+                box_level = plc.read(TAGS["box_level"])[0]
+                self._check_results([box_level])
+                if float(box_level.value) >= 100:
+                    raise ValueError("Caixa d'água cheia; a bomba de transferência não pode ser ligada.")
             result = plc.write((command_tag, running))
             self._check_results([result])
         return self.status()
