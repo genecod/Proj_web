@@ -48,7 +48,7 @@ class Simulation:
                 "tankLevel": round(self.level, 1),
                 "pumps": [
                     {"id": 1, "name": "Bomba 01", "running": self.pumps[1], "direction": "Enchimento"},
-                    {"id": 2, "name": "Bomba 02", "running": self.pumps[2], "direction": "Recirculação"},
+                    {"id": 2, "name": "Bomba 02", "running": self.pumps[2], "direction": "Descarga"},
                 ],
                 "updatedAt": time.strftime("%H:%M:%S"),
             }
@@ -92,7 +92,7 @@ class RockwellPLC:
                 "tankLevel": round(float(level), 1),
                 "pumps": [
                     {"id": 1, "name": "Bomba 01", "running": bool(pump1), "direction": "Enchimento"},
-                    {"id": 2, "name": "Bomba 02", "running": bool(pump2), "direction": "Recirculação"},
+                    {"id": 2, "name": "Bomba 02", "running": bool(pump2), "direction": "Descarga"},
                 ],
                 "updatedAt": time.strftime("%H:%M:%S"),
             }
