@@ -85,6 +85,12 @@
     .water::before { content: ""; position: absolute; left: -20%; top: -5px; width: 140%; height: 11px; border-radius: 50%; background: rgba(216, 242, 99, .6); }
     .tank-level { position: absolute; z-index: 3; inset: 45% 0 auto; color: var(--ink); font-family: "Barlow Condensed", Impact, sans-serif; font-size: 24px; font-weight: 700; text-align: center; text-shadow: 0 1px 5px rgba(255,255,255,.8); }
     .tank-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+    .box-drain { display: grid; justify-items: center; gap: 0; margin-top: -9px; }
+    .box-drain svg { display: block; width: 42px; height: 42px; overflow: visible; }
+    .box-drain .valve-pipe, .box-drain .valve-body, .box-drain .valve-handle { fill: none; stroke: #647576; stroke-width: 2.5; stroke-linecap: square; stroke-linejoin: round; transition: stroke .2s ease; }
+    .box-drain .valve-body { fill: #f0f3ed; }
+    .box-drain.open .valve-pipe, .box-drain.open .valve-body, .box-drain.open .valve-handle { stroke: var(--teal); }
+    .drain-tag { margin-top: -5px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .8px; }
     .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 6px; }
     .metric { padding: 12px 14px; background: #f0f4ee; border-left: 2px solid var(--line); }
     .metric span { display: block; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
@@ -197,6 +203,14 @@
           <div class="pipe" id="pipe-3"></div>
           <div class="tank-wrap">
             <div class="tank tank-box"><div class="water" id="box-water"></div><div class="tank-level" id="box-level">0%</div></div>
+            <div class="box-drain" id="box-drain-valve" role="img" aria-label="Válvula de dreno VD-01 fechada">
+              <svg viewBox="0 0 42 42" aria-hidden="true">
+                <path class="valve-pipe" d="M21 0v11m0 17v14" />
+                <path class="valve-body" d="M7 11 21 19 7 28ZM35 11 21 19l14 9Z" />
+                <path class="valve-handle" d="M21 19V5h9" />
+              </svg>
+              <span class="drain-tag">VD-01</span>
+            </div>
             <span class="tank-label">CX-01 / 5 m³</span>
           </div>
         </div>
@@ -305,6 +319,9 @@
       valveButton.classList.toggle("stop", valveOpen);
       valveButton.setAttribute("aria-pressed", String(valveOpen));
       document.querySelector("#valve-mark").classList.toggle("open", valveOpen);
+      const drainSymbol = document.querySelector("#box-drain-valve");
+      drainSymbol.classList.toggle("open", valveOpen);
+      drainSymbol.setAttribute("aria-label", `Válvula de dreno VD-01 ${valveOpen ? "aberta" : "fechada"}`);
       document.querySelector("#condition").textContent = boxLevel >= 100 ? "Caixa cheia" : level >= 90 ? "Nível alto" : level <= 10 ? "Nível baixo" : "Normal";
       document.querySelector("#updated-at").textContent = data.updatedAt || "--:--:--";
       document.querySelector("#mode-tag").textContent = data.mode === "rockwell" ? "ROCKWELL / PLC" : "SIMULAÇÃO";
