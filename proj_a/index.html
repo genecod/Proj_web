@@ -96,6 +96,12 @@
     .command:disabled { cursor: wait; opacity: .6; }
     .notice { min-height: 36px; margin-top: 8px; padding: 9px 10px; color: var(--muted); background: #f3f5ef; border-left: 2px solid var(--amber); font-size: 11px; line-height: 1.45; }
     .notice.error { color: #9c3d2c; border-color: var(--coral); background: #fff0eb; }
+    .confirm-dialog { width: min(420px, calc(100vw - 32px)); padding: 24px; color: var(--ink); background: var(--panel); border: 1px solid var(--ink); border-radius: 5px; box-shadow: var(--shadow); }
+    .confirm-dialog::backdrop { background: rgba(23, 42, 44, .48); backdrop-filter: blur(2px); }
+    .confirm-dialog h2 { margin: 5px 0 8px; font-family: "Barlow Condensed", Impact, sans-serif; font-size: 28px; text-transform: uppercase; }
+    .confirm-dialog p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
+    .dialog-actions .command { width: auto; min-width: 105px; margin: 0; }
     .footer { display: flex; justify-content: space-between; gap: 16px; padding: 13px 3px 0; color: var(--muted); font-size: 10px; }
     @keyframes pulse { 50% { box-shadow: 0 0 0 10px rgba(216, 242, 99, .08); } }
     @media (max-width: 800px) {
@@ -189,12 +195,23 @@
         <div class="notice" id="notice" role="status" aria-live="polite">Modo de simulação ativo. Os comandos não acionam equipamento físico.</div>
       </section>
     </main>
+    <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="dialog-title" aria-describedby="confirmation-message">
+      <span class="eyebrow">Segurança do comando</span>
+      <h2 id="dialog-title">Confirmar comando</h2>
+      <p id="confirmation-message"></p>
+      <div class="dialog-actions">
+        <button class="command" id="cancel-command" type="button">Cancelar</button>
+        <button class="command stop" id="confirm-command" type="button">Confirmar</button>
+      </div>
+    </dialog>
     <footer class="footer"><span>Controlador: Logix / Emulate 5000 v33</span><span>Endereço PLC: <span id="plc-address">xx.xx.xx.xx</span></span></footer>
   </div>
 
   <script>
     const notice = document.querySelector("#notice");
+    const confirmDialog = document.querySelector("#confirm-dialog");
     let busy = false;
+    let pendingCommand = null;
 
     function showError(message) {
       notice.textContent = message;
@@ -251,27 +268,45 @@
     }
 
     document.querySelectorAll("[data-pump]").forEach((button) => {
-      button.addEventListener("click", async () => {
+      button.addEventListener("click", () => {
         if (busy) return;
-        busy = true;
-        button.disabled = true;
-        try {
-          const current = button.classList.contains("stop");
-          const response = await fetch(`/api/pump/${button.dataset.pump}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ running: !current })
-          });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || "Não foi possível enviar o comando.");
-          render(data);
-        } catch (error) {
-          showError(error.message);
-        } finally {
-          busy = false;
-          button.disabled = false;
-        }
+        const pumpId = Number(button.dataset.pump);
+        const running = !button.classList.contains("stop");
+        const action = running ? "ligar" : "desligar";
+        pendingCommand = { pumpId, running };
+        document.querySelector("#confirmation-message").textContent =
+          `Confirma ${action} a Bomba 0${pumpId}?`;
+        confirmDialog.showModal();
       });
+    });
+
+    document.querySelector("#cancel-command").addEventListener("click", () => confirmDialog.close());
+    confirmDialog.addEventListener("close", () => { pendingCommand = null; });
+    document.querySelector("#confirm-command").addEventListener("click", async () => {
+      if (!pendingCommand || busy) return;
+      const { pumpId, running } = pendingCommand;
+      pendingCommand = null;
+      confirmDialog.close();
+      busy = true;
+      document.querySelectorAll("[data-pump]").forEach((button) => { button.disabled = true; });
+      const confirmButton = document.querySelector("#confirm-command");
+      confirmButton.disabled = true;
+      try {
+        const response = await fetch(`/api/pump/${pumpId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ running })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Não foi possível enviar o comando.");
+        render(data);
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        busy = false;
+        document.querySelectorAll("[data-pump]").forEach((button) => { button.disabled = false; });
+        confirmButton.disabled = false;
+      }
     });
 
     refresh();
