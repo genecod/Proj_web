@@ -93,9 +93,17 @@
     .controls .section-title { margin-bottom: 17px; }
     .pump-control { padding: 15px 0; border-top: 1px solid var(--line); }
     .pump-control:first-of-type { border-top: 0; }
+    .valve-control { padding: 15px 0 0; border-top: 1px solid var(--line); }
     .control-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .control-name { display: flex; align-items: center; gap: 10px; }
     .mini-pump { width: 32px; height: 32px; display: grid; place-items: center; background: #f0f3ed; border: 1px solid #b9c5bc; border-radius: 50%; font-family: "Barlow Condensed", Impact, sans-serif; font-size: 12px; font-weight: 700; }
+    .valve-mark { position: relative; width: 32px; height: 32px; display: grid; place-items: center; background: #f0f3ed; border: 1px solid #b9c5bc; border-radius: 50%; }
+    .valve-mark::before, .valve-mark::after { content: ""; position: absolute; top: 11px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+    .valve-mark::before { left: 7px; border-right: 7px solid #647576; }
+    .valve-mark::after { right: 7px; border-left: 7px solid #647576; }
+    .valve-mark.open::before { border-right-color: var(--teal); }
+    .valve-mark.open::after { border-left-color: var(--teal); }
+    .valve-control .command { margin-top: 14px; }
     .control-name strong { display: block; font-size: 13px; }
     .control-name small { color: var(--muted); font-size: 10px; }
     .state { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
@@ -122,6 +130,7 @@
       .process { min-height: unset; }
       .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
       .controls .section-title { grid-column: 1 / -1; }
+      .valve-control { grid-column: 1 / -1; }
     }
     @media (max-width: 520px) {
       .shell { padding: 18px 14px 28px; }
@@ -215,6 +224,13 @@
           </div>
           <button class="command" data-pump="2" type="button">Ligar bomba 02</button>
         </div>
+        <div class="valve-control">
+          <div class="control-top">
+            <div class="control-name"><span class="valve-mark" id="valve-mark" aria-hidden="true"></span><span><strong>Válvula de drenagem</strong><small>Saída da caixa CX-01</small></span></div>
+            <span class="state" id="valve-state">Fechada</span>
+          </div>
+          <button class="command" id="valve-button" data-valve="drain" type="button" aria-pressed="false">Abrir válvula</button>
+        </div>
         <div class="notice" id="notice" role="status" aria-live="polite">Modo de simulação ativo. Os comandos não acionam equipamento físico.</div>
       </section>
     </main>
@@ -279,6 +295,16 @@
       document.querySelector("#level-metric").textContent = `${level.toFixed(1)}%`;
       document.querySelector("#box-level-metric").textContent = `${boxLevel.toFixed(1)}%`;
       document.querySelector("#active-count").textContent = `${active} / 2`;
+      const valveOpen = Boolean(data.drainValveOpen);
+      const valveButton = document.querySelector("#valve-button");
+      const valveState = document.querySelector("#valve-state");
+      valveState.textContent = valveOpen ? "Aberta" : "Fechada";
+      valveState.classList.toggle("on", valveOpen);
+      valveButton.textContent = valveOpen ? "Fechar válvula" : "Abrir válvula";
+      valveButton.classList.toggle("open", valveOpen);
+      valveButton.classList.toggle("stop", valveOpen);
+      valveButton.setAttribute("aria-pressed", String(valveOpen));
+      document.querySelector("#valve-mark").classList.toggle("open", valveOpen);
       document.querySelector("#condition").textContent = boxLevel >= 100 ? "Caixa cheia" : level >= 90 ? "Nível alto" : level <= 10 ? "Nível baixo" : "Normal";
       document.querySelector("#updated-at").textContent = data.updatedAt || "--:--:--";
       document.querySelector("#mode-tag").textContent = data.mode === "rockwell" ? "ROCKWELL / PLC" : "SIMULAÇÃO";
@@ -367,29 +393,40 @@
         const pumpId = Number(button.dataset.pump);
         const running = !button.classList.contains("stop");
         const action = running ? "ligar" : "desligar";
-        pendingCommand = { pumpId, running };
+        pendingCommand = { type: "pump", pumpId, value: running };
         document.querySelector("#confirmation-message").textContent =
           `Confirma ${action} a Bomba 0${pumpId}?`;
         confirmDialog.showModal();
       });
     });
 
+    document.querySelector("#valve-button").addEventListener("click", (event) => {
+      if (busy) return;
+      const opened = !event.currentTarget.classList.contains("open");
+      pendingCommand = { type: "valve", value: opened };
+      document.querySelector("#confirmation-message").textContent =
+        `Confirma ${opened ? "abrir" : "fechar"} a válvula de drenagem da caixa CX-01?`;
+      confirmDialog.showModal();
+    });
+
     document.querySelector("#cancel-command").addEventListener("click", () => confirmDialog.close());
     confirmDialog.addEventListener("close", () => { pendingCommand = null; });
     document.querySelector("#confirm-command").addEventListener("click", async () => {
       if (!pendingCommand || busy) return;
-      const { pumpId, running } = pendingCommand;
+      const { type, pumpId, value } = pendingCommand;
       pendingCommand = null;
       confirmDialog.close();
       busy = true;
-      document.querySelectorAll("[data-pump]").forEach((button) => { button.disabled = true; });
+      document.querySelectorAll("[data-pump], [data-valve]").forEach((button) => { button.disabled = true; });
       const confirmButton = document.querySelector("#confirm-command");
       confirmButton.disabled = true;
       try {
-        const response = await fetch(`/api/pump/${pumpId}`, {
+        const path = type === "pump" ? `/api/pump/${pumpId}` : "/api/valve/drain";
+        const payload = type === "pump" ? { running: value } : { open: value };
+        const response = await fetch(path, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ running })
+          body: JSON.stringify(payload)
         });
         const data = await response.json();
         if (response.status === 401) {
@@ -402,7 +439,7 @@
         showError(error.message);
       } finally {
         busy = false;
-        document.querySelectorAll("[data-pump]").forEach((button) => { button.disabled = false; });
+        document.querySelectorAll("[data-pump], [data-valve]").forEach((button) => { button.disabled = false; });
         confirmButton.disabled = false;
       }
     });
