@@ -39,7 +39,19 @@
     .brand-mark { width: 42px; height: 42px; display: grid; place-items: center; color: var(--ink); background: var(--lime); border: 1px solid var(--ink); border-radius: 50%; font-size: 19px; font-weight: 700; }
     .brand small, .eyebrow { display: block; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; }
     .brand strong { font-family: "Barlow Condensed", Impact, sans-serif; font-size: 21px; letter-spacing: .3px; text-transform: uppercase; }
+    .top-actions { display: flex; align-items: center; gap: 9px; }
     .connection { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 3px; background: rgba(251, 252, 248, .74); color: var(--muted); font-size: 12px; font-weight: 700; }
+    .logout { padding: 9px 12px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 700; }
+    .logout:hover { border-color: var(--ink); background: var(--lime); }
+    .login-gate { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(23, 42, 44, .72); backdrop-filter: blur(5px); }
+    .login-gate[hidden] { display: none; }
+    .login-form { width: min(390px, 100%); padding: 28px; background: var(--panel); border: 1px solid var(--ink); border-top: 5px solid var(--teal); border-radius: 5px; box-shadow: var(--shadow); }
+    .login-form h1 { margin: 8px 0 22px; font-size: 36px; }
+    .login-form label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .login-form input { width: 100%; padding: 12px; color: var(--ink); background: #f3f5ef; border: 1px solid #becac2; border-radius: 3px; font: inherit; outline: none; }
+    .login-form input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(35, 123, 115, .16); }
+    .login-form .command { margin-top: 12px; }
+    .login-error { min-height: 18px; margin: 10px 0 0; color: #9c3d2c; font-size: 11px; }
     .led { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 3px rgba(229, 173, 71, .16); }
     .led.ok { background: var(--teal); box-shadow: 0 0 0 3px rgba(35, 123, 115, .15); }
     .led.bad { background: var(--coral); box-shadow: 0 0 0 3px rgba(231, 109, 80, .16); }
@@ -133,13 +145,16 @@
   </style>
 </head>
 <body>
-  <div class="shell">
+  <div class="shell" id="app-shell" inert>
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">TQ</div>
         <div><small>Controle de processo</small><strong>Estação de bombeamento</strong></div>
       </div>
-      <div class="connection" role="status" aria-live="polite"><span class="led" id="connection-led"></span><span id="connection-label">Iniciando</span></div>
+      <div class="top-actions">
+        <div class="connection" role="status" aria-live="polite"><span class="led" id="connection-led"></span><span id="connection-label">Iniciando</span></div>
+        <button class="logout" id="logout" type="button">Sair</button>
+      </div>
     </header>
 
     <div class="heading">
@@ -207,11 +222,37 @@
     <footer class="footer"><span>Controlador: Logix / Emulate 5000 v33</span><span>Endereço PLC: <span id="plc-address">xx.xx.xx.xx</span></span></footer>
   </div>
 
+  <div class="login-gate" id="login-gate" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <form class="login-form" id="login-form">
+      <span class="eyebrow">Acesso ao sistema</span>
+      <h1 id="login-title">Entrar</h1>
+      <label for="login-password">Senha</label>
+      <input id="login-password" name="password" type="password" inputmode="numeric" autocomplete="current-password" required maxlength="128">
+      <button class="command stop" type="submit">Acessar painel</button>
+      <p class="login-error" id="login-error" role="alert"></p>
+    </form>
+  </div>
+
   <script>
     const notice = document.querySelector("#notice");
     const confirmDialog = document.querySelector("#confirm-dialog");
     let busy = false;
     let pendingCommand = null;
+    const appShell = document.querySelector("#app-shell");
+    const loginGate = document.querySelector("#login-gate");
+    const loginForm = document.querySelector("#login-form");
+    const loginPassword = document.querySelector("#login-password");
+    const loginError = document.querySelector("#login-error");
+
+    let authenticated = false;
+
+    function setAuthenticated(value) {
+      authenticated = value;
+      loginGate.hidden = value;
+      appShell.inert = !value;
+      if (value) loginPassword.value = "";
+      else loginPassword.focus();
+    }
 
     function showError(message) {
       notice.textContent = message;
@@ -253,9 +294,14 @@
     }
 
     async function refresh() {
+      if (!authenticated) return;
       try {
         const response = await fetch("/api/status", { cache: "no-store" });
         const data = await response.json();
+        if (response.status === 401) {
+          setAuthenticated(false);
+          return;
+        }
         if (!response.ok) throw new Error(data.error || "Falha ao consultar o controlador.");
         render(data);
       } catch (error) {
@@ -263,9 +309,41 @@
         document.querySelector("#connection-label").textContent = "Sem comunicação";
         showError(error.message);
       } finally {
-        setTimeout(refresh, 1200);
+        if (authenticated) setTimeout(refresh, 1200);
       }
     }
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      loginError.textContent = "";
+      const submitButton = loginForm.querySelector("button[type='submit']");
+      submitButton.disabled = true;
+      try {
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: loginPassword.value })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Não foi possível entrar.");
+        setAuthenticated(true);
+        refresh();
+      } catch (error) {
+        loginError.textContent = error.message;
+        loginPassword.select();
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    document.querySelector("#logout").addEventListener("click", async () => {
+      setAuthenticated(false);
+      try {
+        await fetch("/api/logout", { method: "POST" });
+      } catch {
+        loginError.textContent = "Não foi possível encerrar a sessão no servidor.";
+      }
+    });
 
     document.querySelectorAll("[data-pump]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -298,6 +376,10 @@
           body: JSON.stringify({ running })
         });
         const data = await response.json();
+        if (response.status === 401) {
+          setAuthenticated(false);
+          return;
+        }
         if (!response.ok) throw new Error(data.error || "Não foi possível enviar o comando.");
         render(data);
       } catch (error) {
@@ -309,7 +391,16 @@
       }
     });
 
-    refresh();
+    fetch("/api/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        setAuthenticated(Boolean(data.authenticated));
+        if (authenticated) refresh();
+      })
+      .catch(() => {
+        setAuthenticated(false);
+        loginError.textContent = "Não foi possível verificar a sessão.";
+      });
   </script>
 </body>
 </html>
