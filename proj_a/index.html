@@ -33,7 +33,7 @@
       font-family: "DM Sans", "Segoe UI", sans-serif;
     }
     button { font: inherit; }
-    .shell { max-width: 1440px; margin: auto; padding: 28px clamp(18px, 4vw, 58px) 42px; }
+    .shell { max-width: 1720px; margin: auto; padding: 24px clamp(16px, 2.5vw, 40px) 36px; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 32px; }
     .brand { display: flex; align-items: center; gap: 13px; }
     .brand-mark { width: 42px; height: 42px; display: grid; place-items: center; color: var(--ink); background: var(--lime); border: 1px solid var(--ink); border-radius: 50%; font-size: 19px; font-weight: 700; }
@@ -60,11 +60,11 @@
     .heading-note { color: var(--muted); font-size: 12px; text-align: right; }
     .workspace { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, .85fr); gap: 16px; align-items: stretch; }
     .panel { border: 1px solid var(--line); border-radius: 5px; background: var(--panel); box-shadow: var(--shadow); }
-    .process { min-height: 430px; padding: 23px 24px; overflow: hidden; }
+    .process { min-height: 430px; padding: 23px clamp(20px, 2vw, 34px); overflow: hidden; }
     .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
     .panel-head h2, .section-title { margin: 4px 0 0; font-family: "Barlow Condensed", Impact, sans-serif; font-size: 25px; font-weight: 600; text-transform: uppercase; }
     .tag { padding: 6px 9px; color: var(--teal); background: #e5f1e9; border: 1px solid #c8ddd1; border-radius: 2px; font-size: 10px; font-weight: 700; letter-spacing: .8px; }
-    .diagram { position: relative; display: grid; grid-template-columns: minmax(64px, .75fr) minmax(95px, 1.05fr) minmax(64px, .75fr) minmax(60px, .8fr); align-items: center; gap: 6px; min-height: 278px; padding: 18px 0 7px; }
+    .diagram { position: relative; display: grid; grid-template-columns: minmax(64px, .75fr) minmax(95px, 1.05fr) minmax(64px, .75fr) minmax(60px, .8fr); align-items: center; gap: 6px; min-height: 310px; padding: 18px 0 7px; }
     .pipework { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
     .pipe .pipe-shell, .pipe .pipe-body, .pipe .pipe-highlight { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
     .pipe .pipe-shell { stroke: #71817a; stroke-width: 10; }
@@ -87,8 +87,8 @@
     .pump-node strong { font-size: 12px; }
     .pump-node small { color: var(--muted); font-size: 10px; }
     .tank-wrap { display: grid; justify-items: center; gap: 9px; }
-    .tank { position: relative; width: 112px; height: 190px; overflow: hidden; background: #f6f8f3; border: 3px solid var(--ink); border-top: 8px solid var(--ink); border-radius: 7px 7px 16px 16px; box-shadow: inset 0 0 0 5px rgba(23, 42, 44, .035); }
-    .tank-box { width: 78px; height: 132px; }
+    .tank { position: relative; width: clamp(112px, 10vw, 148px); height: clamp(190px, 19vw, 230px); overflow: hidden; background: #f6f8f3; border: 3px solid var(--ink); border-top: 8px solid var(--ink); border-radius: 7px 7px 16px 16px; box-shadow: inset 0 0 0 5px rgba(23, 42, 44, .035); }
+    .tank-box { width: clamp(78px, 7vw, 100px); height: clamp(132px, 14vw, 168px); }
     .tank::before, .tank::after { content: ""; position: absolute; z-index: 2; left: 0; right: 0; height: 1px; background: rgba(23, 42, 44, .2); }
     .tank::before { top: 33%; } .tank::after { top: 66%; }
     .water { position: absolute; right: 0; bottom: 0; left: 0; height: 54%; background: #7bc8b1; border-top: 2px solid #237b73; transition: height .5s ease; }
@@ -149,11 +149,12 @@
       .valve-control { grid-column: 1 / -1; }
     }
     @media (max-width: 520px) {
-      .shell { padding: 18px 14px 28px; }
-      .topbar { margin-bottom: 25px; }
+      .shell { padding: 14px 8px 24px; }
+      .topbar { flex-wrap: wrap; gap: 12px; margin-bottom: 25px; }
+      .top-actions { width: 100%; justify-content: space-between; }
       .heading { align-items: start; flex-direction: column; }
       .heading-note { text-align: left; }
-      .process, .controls { padding: 17px; }
+      .process, .controls { padding: 14px; }
       .diagram { grid-template-columns: minmax(44px, .7fr) minmax(58px, 1fr) minmax(44px, .7fr) minmax(48px, .7fr); gap: 3px; min-height: 238px; }
       .pump-symbol { width: 45px; height: 45px; }
       .pump-symbol svg { width: 43px; height: 43px; }
